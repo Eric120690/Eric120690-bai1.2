@@ -10,10 +10,8 @@
 <!-- ✦ Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getFirestore, doc, setDoc, getDoc, collection, getDocs, addDoc, deleteDoc, updateDoc }
+  import { getFirestore, doc, setDoc, getDoc, deleteDoc }
     from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
-    from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyDIrVL0Dqxs8vXMPAJDiEVoL-ELkahz3aA",
@@ -26,34 +24,18 @@
 
   const app      = initializeApp(firebaseConfig);
   const db       = getFirestore(app);
-  const auth     = getAuth(app);
-  const provider = new GoogleAuthProvider();
 
   // Gán ra window
-  window._db         = db;
-  window._auth       = auth;
-  window._doc        = doc;
-  window._setDoc     = setDoc;
-  window._getDoc     = getDoc;
-  window._collection = collection;
-  window._getDocs    = getDocs;
-  window._addDoc     = addDoc;
-  window._deleteDoc  = deleteDoc;
-  window._updateDoc  = updateDoc;
+  window._db       = db;
+  window._doc      = doc;
+  window._setDoc   = setDoc;
+  window._getDoc   = getDoc;
+  window._deleteDoc = deleteDoc;
 
-  // Đăng nhập Google
-  window._signIn = () => signInWithPopup(auth, provider);
-  window._signOut = () => signOut(auth);
-
-  // Theo dõi trạng thái đăng nhập
-  onAuthStateChanged(auth, (user) => {
-    window._currentUser = user;
-    window.dispatchEvent(new CustomEvent('auth-changed', { detail: user }));
-    if (!window._firebaseReady) {
-      window._firebaseReady = true;
-      window.dispatchEvent(new Event('firebase-ready'));
-    }
-  });
+  // Không cần đăng nhập - dùng UID cố định
+  window._currentUser = { uid: 'owner' };
+  window._firebaseReady = true;
+  window.dispatchEvent(new Event('firebase-ready'));
 </script>
 <style>
   :root {
@@ -392,7 +374,13 @@
   .fc-desc  { font-size:0.82rem; color:rgba(255,255,255,0.58); max-width:400px; margin-bottom:7px; line-height:1.6; font-family:'Inter',sans-serif; }
   .fc-example { font-size:0.82rem; color:rgba(255,255,255,0.38); font-style:italic; max-width:420px; line-height:1.6; font-family:'Inter',sans-serif; }
 
-
+  .typing-zone { background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); border-radius:16px; padding:17px 20px; margin-bottom:16px; transition:border-color 0.2s,background 0.2s; }
+  .typing-zone.correct { border-color:rgba(57,255,20,0.5); background:rgba(57,255,20,0.05); }
+  .typing-zone.wrong   { border-color:rgba(255,0,110,0.5); background:rgba(255,0,110,0.05); }
+  .typing-label { font-size:0.65rem; letter-spacing:0.2em; text-transform:uppercase; color:rgba(255,255,255,0.35); margin-bottom:10px; font-family:'Inter',sans-serif; }
+  .typing-input { width:100%; background:transparent; border:none; color:#fff; font-family:'Syne',sans-serif; font-size:1.3rem; font-weight:700; outline:none; letter-spacing:0.05em; }
+  .typing-input::placeholder { color:rgba(255,255,255,0.1); }
+  .typing-feedback { font-size:0.72rem; margin-top:8px; min-height:16px; }
   .feedback-correct { color:var(--neon-green); text-shadow:0 0 8px rgba(57,255,20,0.5); }
   .feedback-wrong   { color:var(--neon-pink); }
 
@@ -464,11 +452,11 @@
 
   /* LOGIN OVERLAY */
   .login-overlay {
-    display:flex; position:fixed; inset:0; z-index:200;
+    display:none; position:fixed; inset:0; z-index:200;
     background:rgba(5,5,15,0.95); backdrop-filter:blur(10px);
     align-items:center; justify-content:center; flex-direction:column; gap:24px;
   }
-  .login-overlay.hidden { display:none; }
+  .login-overlay.show { display:flex; }
   .login-box {
     background:var(--dark2); border:1px solid var(--glass-border);
     border-radius:24px; padding:48px 40px; text-align:center; max-width:380px; width:90%;
@@ -482,84 +470,46 @@
   .login-desc { font-size:0.85rem; color:rgba(255,255,255,0.5); margin-bottom:28px; line-height:1.7; }
 
 
-  /* ===== PACK MANAGEMENT ===== */
+  /* ===== PACK SCREENS ===== */
   .screen { display:none; }
   .screen.active { display:block; }
-
-  /* Pack selection screen */
-  .packs-screen { padding:0; }
-  .packs-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:12px; }
-  .packs-title { font-family:'Syne',sans-serif; font-size:1rem; font-weight:700; letter-spacing:0.1em; color:rgba(255,255,255,0.6); text-transform:uppercase; }
-  .packs-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:14px; margin-bottom:20px; }
-
-  .pack-card {
-    background:var(--glass); border:1px solid var(--glass-border);
-    border-radius:18px; padding:20px; cursor:pointer;
-    transition:all 0.25s; position:relative; overflow:hidden;
-  }
-  .pack-card::before {
-    content:''; position:absolute; top:0; left:0; right:0; height:2px;
-    background:linear-gradient(90deg, var(--neon-cyan), var(--neon-purple));
-    opacity:0; transition:opacity 0.25s;
-  }
-  .pack-card:hover { border-color:rgba(0,245,255,0.25); transform:translateY(-3px); background:rgba(255,255,255,0.06); }
+  .packs-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:14px; margin-top:16px; }
+  .pack-card { background:var(--glass); border:1.5px solid var(--glass-border); border-radius:18px; padding:20px; cursor:pointer; transition:all 0.25s; position:relative; overflow:hidden; }
+  .pack-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,var(--neon-cyan),var(--neon-purple)); opacity:0; transition:opacity 0.25s; }
+  .pack-card:hover { border-color:rgba(0,245,255,0.3); transform:translateY(-3px); background:rgba(255,255,255,0.06); }
   .pack-card:hover::before { opacity:1; }
-
   .pack-icon { font-size:1.8rem; margin-bottom:10px; }
-  .pack-name { font-family:'Syne',sans-serif; font-size:0.95rem; font-weight:700; color:#fff; margin-bottom:6px; letter-spacing:0.04em; }
+  .pack-name { font-family:'Syne',sans-serif; font-size:0.95rem; font-weight:700; color:#fff; margin-bottom:6px; }
   .pack-meta { font-size:0.72rem; color:rgba(255,255,255,0.35); margin-bottom:12px; line-height:1.6; }
-
-  .pack-progress-bar { height:3px; background:rgba(255,255,255,0.08); border-radius:3px; overflow:hidden; margin-bottom:6px; }
-  .pack-progress-fill { height:100%; background:linear-gradient(90deg,var(--neon-cyan),var(--neon-green)); border-radius:3px; transition:width 0.4s ease; }
+  .pack-progress-bar { height:3px; background:rgba(255,255,255,0.08); border-radius:3px; overflow:hidden; margin-bottom:5px; }
+  .pack-progress-fill { height:100%; background:linear-gradient(90deg,var(--neon-cyan),var(--neon-green)); border-radius:3px; }
   .pack-progress-label { font-size:0.65rem; color:rgba(255,255,255,0.3); }
-
   .pack-actions { position:absolute; top:10px; right:10px; display:flex; gap:4px; opacity:0; transition:opacity 0.2s; }
   .pack-card:hover .pack-actions { opacity:1; }
-  .pack-action-btn { width:24px; height:24px; border-radius:6px; border:none; background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.5); font-size:0.7rem; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.15s; }
-  .pack-action-btn:hover { background:rgba(255,0,110,0.2); color:var(--neon-pink); }
+  .pack-action-btn { width:26px; height:26px; border-radius:6px; border:none; background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.5); font-size:0.72rem; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all 0.15s; }
+  .pack-action-btn:hover { background:rgba(255,0,110,0.25); color:var(--neon-pink); }
   .pack-action-btn.edit:hover { background:rgba(0,245,255,0.15); color:var(--neon-cyan); }
-
-  .pack-add-card {
-    background:transparent; border:1.5px dashed rgba(255,255,255,0.1);
-    border-radius:18px; padding:20px; cursor:pointer;
-    transition:all 0.25s; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; min-height:140px;
-  }
-  .pack-add-card:hover { border-color:rgba(0,245,255,0.3); background:rgba(0,245,255,0.03); }
-  .pack-add-icon { font-size:1.8rem; color:rgba(255,255,255,0.2); }
-  .pack-add-label { font-size:0.75rem; color:rgba(255,255,255,0.25); font-family:'Syne',sans-serif; letter-spacing:0.08em; }
-
-  /* Pack study screen */
-  .pack-study-header { display:flex; align-items:center; gap:12px; margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--glass-border); }
-  .pack-back-btn { background:var(--glass); border:1px solid var(--glass-border); border-radius:10px; padding:8px 14px; color:rgba(255,255,255,0.5); font-size:0.78rem; font-family:'Syne',sans-serif; font-weight:700; cursor:pointer; letter-spacing:0.05em; transition:all 0.2s; }
-  .pack-back-btn:hover { border-color:rgba(0,245,255,0.3); color:var(--neon-cyan); }
-  .pack-study-title { font-family:'Syne',sans-serif; font-size:1rem; font-weight:800; color:#fff; letter-spacing:0.06em; }
-  .pack-study-badge { font-size:0.65rem; color:rgba(255,255,255,0.3); background:var(--glass); border:1px solid var(--glass-border); padding:3px 8px; border-radius:6px; }
-
-  /* New pack modal */
-  .pack-modal-overlay { position:fixed; inset:0; z-index:300; background:rgba(0,0,0,0.7); backdrop-filter:blur(8px); display:none; align-items:center; justify-content:center; padding:20px; }
+  .pack-add-card { background:transparent; border:1.5px dashed rgba(255,255,255,0.1); border-radius:18px; padding:20px; cursor:pointer; transition:all 0.25s; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; min-height:140px; }
+  .pack-add-card:hover { border-color:rgba(0,245,255,0.35); background:rgba(0,245,255,0.03); }
+  .pack-add-icon { font-size:2rem; color:rgba(255,255,255,0.2); }
+  .pack-add-label { font-size:0.72rem; color:rgba(255,255,255,0.25); font-family:'Syne',sans-serif; letter-spacing:0.08em; }
+  .pack-study-header { display:flex; align-items:center; gap:14px; margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--glass-border); }
+  .pack-back-btn { background:var(--glass); border:1px solid var(--glass-border); border-radius:10px; padding:8px 16px; color:rgba(255,255,255,0.5); font-size:0.78rem; font-family:'Syne',sans-serif; font-weight:700; cursor:pointer; transition:all 0.2s; white-space:nowrap; }
+  .pack-back-btn:hover { border-color:rgba(0,245,255,0.35); color:var(--neon-cyan); }
+  .pack-study-title { font-family:'Syne',sans-serif; font-size:1rem; font-weight:800; color:#fff; }
+  .pack-study-badge { font-size:0.65rem; color:rgba(255,255,255,0.3); margin-top:3px; }
+  .pack-modal-overlay { position:fixed; inset:0; z-index:300; background:rgba(0,0,0,0.75); backdrop-filter:blur(8px); display:none; align-items:center; justify-content:center; padding:20px; }
   .pack-modal-overlay.show { display:flex; }
   .pack-modal { background:#0d0d1f; border:1px solid rgba(0,245,255,0.15); border-radius:20px; padding:32px; width:100%; max-width:400px; }
-  .pack-modal-title { font-family:'Syne',sans-serif; font-size:1rem; font-weight:800; color:#fff; letter-spacing:0.08em; margin-bottom:20px; }
+  .pack-modal-title { font-family:'Syne',sans-serif; font-size:1rem; font-weight:800; color:#fff; letter-spacing:0.06em; margin-bottom:20px; }
   .pack-modal input { width:100%; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:10px; padding:12px 14px; color:#fff; font-family:'Inter',sans-serif; font-size:0.9rem; outline:none; transition:border-color 0.2s; margin-bottom:14px; }
   .pack-modal input:focus { border-color:rgba(0,245,255,0.4); }
   .pack-modal-actions { display:flex; gap:10px; }
-
 </style>
 </head>
 <body>
 
-<!-- LOGIN OVERLAY -->
-<div class="login-overlay" id="loginOverlay">
-  <div class="login-box">
-    <div class="login-logo">LEXON</div>
-    <div class="login-sub">Vocabulary Training System</div>
-    <div class="login-desc">Đăng nhập để lưu từ vựng của bạn<br>lên cloud và truy cập mọi nơi 🌐</div>
-    <button class="btn-google" onclick="window._signIn()">
-      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
-      Đăng nhập với Google
-    </button>
-  </div>
-</div>
+
 
 <!-- IMPORT MODAL -->
 <div class="modal-overlay" id="importModal">
@@ -578,46 +528,41 @@
 <div class="pack-modal-overlay" id="packModal">
   <div class="pack-modal">
     <div class="pack-modal-title" id="packModalTitle">✦ Tạo gói từ vựng mới</div>
-    <input type="text" id="packNameInput" placeholder="Tên gói, VD: IELTS Vocabulary, Business English..." maxlength="50">
+    <input type="text" id="packNameInput" placeholder="Tên gói, VD: IELTS, Business English..." maxlength="50">
     <input type="text" id="packDescInput" placeholder="Mô tả ngắn (tùy chọn)" maxlength="80">
     <div class="pack-modal-actions">
       <button class="btn-primary" style="flex:1;justify-content:center" onclick="savePackModal()">✓ Lưu</button>
-      <button class="btn-danger" style="justify-content:center" onclick="closePackModal()">✕</button>
+      <button class="btn-danger" style="justify-content:center" onclick="closePackModal()">✕ Hủy</button>
     </div>
   </div>
 </div>
 
 <div class="container">
 
-  <!-- AUTH BAR -->
-  <div class="auth-bar" id="authBar"></div>
-
   <div class="header">
     <div class="logo">LEXON</div>
     <div class="tagline">Vocabulary Training System</div>
   </div>
 
-  <!-- ========== PACKS SCREEN ========== -->
+  <!-- ===== PACKS SCREEN ===== -->
   <div class="screen active" id="screen-packs">
-    <div class="card packs-screen">
-      <div class="packs-header">
-        <div class="packs-title">◈ Gói từ vựng của bạn</div>
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div class="section-label">◈ Gói từ vựng của bạn</div>
       </div>
-      <div class="packs-grid" id="packsGrid">
-        <!-- rendered by JS -->
-      </div>
+      <div class="packs-grid" id="packsGrid"></div>
     </div>
   </div>
 
-  <!-- ========== STUDY SCREEN ========== -->
+  <!-- ===== STUDY SCREEN ===== -->
   <div class="screen" id="screen-study">
 
     <div class="card" style="margin-bottom:12px;padding:16px 20px">
       <div class="pack-study-header">
         <button class="pack-back-btn" onclick="backToPacks()">← Gói từ vựng</button>
         <div>
-          <div class="pack-study-title" id="studyPackName">Tên gói</div>
-          <div class="pack-study-badge" id="studyPackBadge">0 từ</div>
+          <div class="pack-study-title" id="studyPackName"></div>
+          <div class="pack-study-badge" id="studyPackBadge"></div>
         </div>
       </div>
       <div class="tabs" style="margin-bottom:0">
@@ -722,83 +667,70 @@ serendipity - tình cờ may mắn - (n) - It was pure serendipity."></textarea>
     </div>
   </div>
 
-  </div><!-- end screen-study -->
+  </div><!-- /screen-study -->
 
-</div><!-- end container -->
+</div><!-- /container -->
 
 <script>
 // ============================================================
-//  STATE & PACK MANAGEMENT
+//  STATE & STORAGE
 // ============================================================
+// ============================================================
+//  STATE
+// ============================================================
+const UID = 'owner'; // fixed uid - no login needed
 let words = [];
-let packs = [];           // [{id, name, desc, createdAt}]
-let currentPack = null;   // pack object đang học
+let packs = [];
+let currentPack = null;
+let editingPackId = null;
 let pendingImport = [];
 let studyQueue = [];
 let currentIndex = 0;
 let isFlipped = false;
 let correctStreak = 0;
 let listFilter = 'all';
-let editingPackId = null;
 
-// --- Firebase helpers ---
-function packsCol() {
-  const uid = window._currentUser?.uid;
-  return window._collection(window._db, 'users', uid, 'packs');
+// ============================================================
+//  FIREBASE HELPERS
+// ============================================================
+function userDoc() {
+  return window._doc(window._db, 'users', UID);
 }
-function wordsCol(packId) {
-  const uid = window._currentUser?.uid;
-  return window._collection(window._db, 'users', uid, 'packs', packId, 'words');
+function packDoc(packId) {
+  return window._doc(window._db, 'users', UID, 'packs', packId);
 }
 
-// --- Save/Load packs list ---
 async function savePacks() {
-  if (!window._firebaseReady || !window._currentUser) return;
-  const uid = window._currentUser.uid;
   try {
-    await window._setDoc(
-      window._doc(window._db, 'users', uid),
-      { packs: packs, updatedAt: Date.now() },
-      { merge: true }
-    );
-  } catch(e) { console.warn('Lỗi lưu packs:', e.message); }
+    await window._setDoc(userDoc(), { packs, updatedAt: Date.now() }, { merge: true });
+  } catch(e) { console.warn('savePacks error:', e.message); }
 }
 
 async function loadPacks() {
-  if (!window._firebaseReady || !window._currentUser) return [];
-  const uid = window._currentUser.uid;
   try {
-    const snap = await window._getDoc(window._doc(window._db, 'users', uid));
+    const snap = await window._getDoc(userDoc());
     if (snap.exists() && snap.data().packs) return snap.data().packs;
-  } catch(e) { console.warn('Lỗi load packs:', e.message); }
+  } catch(e) { console.warn('loadPacks error:', e.message); }
   return [];
 }
 
-// --- Save/Load words in a pack ---
 async function saveData() {
-  if (!window._firebaseReady || !window._currentUser || !currentPack) return;
-  const uid = window._currentUser.uid;
+  if (!currentPack) return;
   try {
-    await window._setDoc(
-      window._doc(window._db, 'users', uid, 'packs', currentPack.id),
-      { words: words, updatedAt: Date.now(), name: currentPack.name, desc: currentPack.desc || '' },
-      { merge: true }
-    );
-  } catch(e) { console.warn('Lỗi lưu words:', e.message); }
+    await window._setDoc(packDoc(currentPack.id),
+      { words, name: currentPack.name, desc: currentPack.desc || '', updatedAt: Date.now() },
+      { merge: true });
+  } catch(e) { console.warn('saveData error:', e.message); }
 }
 
 async function loadData() {
-  if (!window._firebaseReady || !window._currentUser || !currentPack) return false;
-  const uid = window._currentUser.uid;
+  if (!currentPack) return false;
   try {
-    const snap = await window._getDoc(
-      window._doc(window._db, 'users', uid, 'packs', currentPack.id)
-    );
+    const snap = await window._getDoc(packDoc(currentPack.id));
     if (snap.exists() && snap.data().words?.length) {
-      words = snap.data().words;
-      return true;
+      words = snap.data().words; return true;
     }
-  } catch(e) { console.warn('Lỗi load words:', e.message); }
+  } catch(e) { console.warn('loadData error:', e.message); }
   return false;
 }
 
@@ -808,61 +740,51 @@ async function loadData() {
 async function showPacksScreen() {
   document.getElementById('screen-packs').classList.add('active');
   document.getElementById('screen-study').classList.remove('active');
-  currentPack = null;
-  words = [];
-  // Load pack list with word counts
+  currentPack = null; words = [];
   packs = await loadPacks();
-  await renderPacksGrid();
+  renderPacksGrid();
 }
 
 async function renderPacksGrid() {
   const grid = document.getElementById('packsGrid');
   grid.innerHTML = '';
 
-  // Load word counts for each pack
-  const uid = window._currentUser?.uid;
-  const packDataMap = {};
-  if (uid) {
-    await Promise.all(packs.map(async p => {
-      try {
-        const snap = await window._getDoc(
-          window._doc(window._db, 'users', uid, 'packs', p.id)
-        );
-        if (snap.exists()) packDataMap[p.id] = snap.data();
-      } catch(e) {}
-    }));
-  }
+  // Load word counts
+  const counts = {};
+  await Promise.all(packs.map(async p => {
+    try {
+      const snap = await window._getDoc(packDoc(p.id));
+      if (snap.exists()) counts[p.id] = snap.data().words || [];
+    } catch(e) {}
+  }));
 
-  packs.forEach(pack => {
-    const data = packDataMap[pack.id] || {};
-    const wordArr = data.words || [];
-    const total = wordArr.length;
-    const mastered = wordArr.filter(w => w.mastered).length;
+  const icons = ['📘','📗','📙','📕','📒','📓','📔','📑'];
+  packs.forEach((pack, i) => {
+    const ws = counts[pack.id] || [];
+    const total = ws.length;
+    const mastered = ws.filter(w => w.mastered).length;
     const pct = total ? Math.round(mastered / total * 100) : 0;
-    const icons = ['📘','📗','📙','📕','📒','📓'];
-    const icon = icons[packs.indexOf(pack) % icons.length];
-
     const card = document.createElement('div');
     card.className = 'pack-card';
-    card.innerHTML = \`
+    card.innerHTML = `
       <div class="pack-actions">
-        <button class="pack-action-btn edit" onclick="editPack('\${pack.id}',event)" title="Đổi tên">✎</button>
-        <button class="pack-action-btn" onclick="deletePack('\${pack.id}',event)" title="Xóa">✕</button>
+        <button class="pack-action-btn edit" onclick="editPack('${pack.id}',event)">✎</button>
+        <button class="pack-action-btn" onclick="deletePack('${pack.id}',event)">✕</button>
       </div>
-      <div class="pack-icon">\${icon}</div>
-      <div class="pack-name">\${h(pack.name)}</div>
-      <div class="pack-meta">\${pack.desc ? h(pack.desc)+'<br>' : ''}\${total} từ · \${mastered} đã thuộc</div>
-      <div class="pack-progress-bar"><div class="pack-progress-fill" style="width:\${pct}%"></div></div>
-      <div class="pack-progress-label">\${pct}% hoàn thành</div>
-    \`;
+      <div class="pack-icon">${icons[i % icons.length]}</div>
+      <div class="pack-name">${h(pack.name)}</div>
+      <div class="pack-meta">${pack.desc ? h(pack.desc) + '<br>' : ''}${total} từ · ${mastered} đã thuộc</div>
+      <div class="pack-progress-bar"><div class="pack-progress-fill" style="width:${pct}%"></div></div>
+      <div class="pack-progress-label">${pct}% hoàn thành</div>
+    `;
     card.addEventListener('click', () => openPack(pack));
     grid.appendChild(card);
   });
 
-  // Add new pack card
+  // Add new pack button
   const addCard = document.createElement('div');
   addCard.className = 'pack-add-card';
-  addCard.innerHTML = \`<div class="pack-add-icon">⊕</div><div class="pack-add-label">TẠO GÓI MỚI</div>\`;
+  addCard.innerHTML = '<div class="pack-add-icon">⊕</div><div class="pack-add-label">TẠO GÓI MỚI</div>';
   addCard.onclick = () => openPackModal();
   grid.appendChild(addCard);
 }
@@ -874,96 +796,61 @@ async function openPack(pack) {
   document.getElementById('screen-study').classList.add('active');
   switchTab('input');
   words = [];
-  const loaded = await loadData();
-  if (!loaded) words = [];
-  buildQueue();
-  renderList();
-  updateStudyBadge();
+  await loadData();
+  buildQueue(); renderList(); updateStudyBadge();
 }
 
 function updateStudyBadge() {
-  const mastered = words.filter(w => w.mastered).length;
-  document.getElementById('studyPackBadge').textContent =
-    words.length + ' từ · ' + mastered + ' đã thuộc';
+  const m = words.filter(w => w.mastered).length;
+  document.getElementById('studyPackBadge').textContent = `${words.length} từ · ${m} đã thuộc`;
 }
 
-function backToPacks() {
-  showPacksScreen();
-}
+function backToPacks() { showPacksScreen(); }
 
 // ============================================================
-//  PACK MODAL (create / edit)
+//  PACK MODAL
 // ============================================================
 function openPackModal(packId) {
   editingPackId = packId || null;
-  const title = document.getElementById('packModalTitle');
-  const nameInput = document.getElementById('packNameInput');
-  const descInput = document.getElementById('packDescInput');
-  if (packId) {
-    const pack = packs.find(p => p.id === packId);
-    title.textContent = '✎ Đổi tên gói';
-    nameInput.value = pack?.name || '';
-    descInput.value = pack?.desc || '';
-  } else {
-    title.textContent = '✦ Tạo gói từ vựng mới';
-    nameInput.value = '';
-    descInput.value = '';
-  }
+  document.getElementById('packModalTitle').textContent = packId ? '✎ Đổi tên gói' : '✦ Tạo gói từ vựng mới';
+  document.getElementById('packNameInput').value = packId ? (packs.find(p=>p.id===packId)?.name||'') : '';
+  document.getElementById('packDescInput').value = packId ? (packs.find(p=>p.id===packId)?.desc||'') : '';
   document.getElementById('packModal').classList.add('show');
-  setTimeout(() => nameInput.focus(), 100);
+  setTimeout(() => document.getElementById('packNameInput').focus(), 100);
 }
-
 function closePackModal() {
   document.getElementById('packModal').classList.remove('show');
   editingPackId = null;
 }
-
 async function savePackModal() {
   const name = document.getElementById('packNameInput').value.trim();
   if (!name) { showToast('error', '⚠ Vui lòng nhập tên gói!'); return; }
   const desc = document.getElementById('packDescInput').value.trim();
-
   if (editingPackId) {
-    const pack = packs.find(p => p.id === editingPackId);
-    if (pack) { pack.name = name; pack.desc = desc; }
+    const p = packs.find(p => p.id === editingPackId);
+    if (p) { p.name = name; p.desc = desc; }
   } else {
     packs.push({ id: 'pack_' + Date.now(), name, desc, createdAt: Date.now() });
   }
   await savePacks();
   closePackModal();
-  await renderPacksGrid();
-  showToast('success', '✓ Đã lưu gói từ vựng!');
+  renderPacksGrid();
+  showToast('success', '✓ Đã lưu!');
 }
-
-function editPack(packId, event) {
-  event.stopPropagation();
-  openPackModal(packId);
-}
-
-async function deletePack(packId, event) {
-  event.stopPropagation();
-  const pack = packs.find(p => p.id === packId);
-  if (!confirm(\`Xóa gói "\${pack?.name}"? Tất cả từ vựng trong gói sẽ bị mất.\`)) return;
-  // Delete from Firebase
-  const uid = window._currentUser?.uid;
-  if (uid) {
-    try {
-      await window._deleteDoc(window._doc(window._db, 'users', uid, 'packs', packId));
-    } catch(e) {}
-  }
-  packs = packs.filter(p => p.id !== packId);
+function editPack(id, e) { e.stopPropagation(); openPackModal(id); }
+async function deletePack(id, e) {
+  e.stopPropagation();
+  const p = packs.find(p => p.id === id);
+  if (!confirm(`Xóa gói "${p?.name}"? Toàn bộ từ vựng sẽ bị mất.`)) return;
+  try { await window._setDoc(packDoc(id), { deleted: true }); } catch(err) {}
+  packs = packs.filter(p => p.id !== id);
   await savePacks();
-  await renderPacksGrid();
-  showToast('success', '🗑 Đã xóa gói từ vựng');
+  renderPacksGrid();
+  showToast('success', '🗑 Đã xóa');
 }
-
-// Close modal on overlay click
-document.getElementById('packModal').addEventListener('click', function(e) {
-  if (e.target === this) closePackModal();
-});
-// Enter key in modal
-document.getElementById('packNameInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') savePackModal();
+document.getElementById('packModal').addEventListener('click', e => { if (e.target.id==='packModal') closePackModal(); });
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('packNameInput').addEventListener('keydown', e => { if (e.key==='Enter') savePackModal(); });
 });
 
 // ============================================================
@@ -1280,18 +1167,54 @@ function renderFlashcard() {
       <span class="arrow-nav-hint">Phím ← → để điều hướng &nbsp;·&nbsp; Space để lật</span>
       <button class="btn-arrow" onclick="skipWord()" title="Tiếp theo (→)">→</button>
     </div>
-
+    <div class="typing-zone" id="typingZone">
+      <div class="typing-label">⌨ Gõ lại từ tiếng Anh để luyện nhớ &nbsp;(Enter = gợi ý chữ đầu)</div>
+      <input type="text" class="typing-input" id="typingInput"
+        placeholder="${c.word.replace(/./g,'·')}"
+        oninput="checkTyping()" onkeydown="handleKey(event)"
+        autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <div class="typing-feedback" id="typingFeedback"></div>
+    </div>
   `;
 
   isFlipped=false;
+  setTimeout(()=>{ const i=document.getElementById('typingInput'); if(i) i.focus(); },80);
   autoSpeakCurrent();
 }
 
 function flipCard() { const c=document.getElementById('theCard'); if(!c)return; isFlipped=!isFlipped; c.classList.toggle('flipped',isFlipped); }
 
+function checkTyping() {
+  const inp=document.getElementById('typingInput');
+  const fb=document.getElementById('typingFeedback');
+  const zone=document.getElementById('typingZone');
+  if(!inp||!studyQueue[currentIndex])return;
+  const typed=inp.value.trim().toLowerCase();
+  const target=studyQueue[currentIndex].word.toLowerCase();
+  if(!typed){fb.textContent='';zone.className='typing-zone';return;}
+  if(typed===target){
+    fb.textContent='✓ Chính xác!';fb.className='typing-feedback feedback-correct';zone.className='typing-zone correct';
+    inp.disabled=true; correctStreak++;
+    setTimeout(()=>{ if(studyQueue[currentIndex]) nextCard(); },1100);
+  } else if(target.startsWith(typed)){
+    fb.textContent=`${typed.length} / ${target.length} ký tự...`;fb.className='typing-feedback';zone.className='typing-zone';
+  } else {
+    fb.textContent='✗ Chưa đúng — thử lại';fb.className='typing-feedback feedback-wrong';zone.className='typing-zone wrong';correctStreak=0;
+  }
+}
 
-
-
+function handleKey(e) {
+  if(e.key==='Enter'){
+    const inp=document.getElementById('typingInput');
+    if(inp&&inp.value.length===0&&studyQueue[currentIndex]){inp.value=studyQueue[currentIndex].word[0];checkTyping();}
+  }
+  if(e.key==='ArrowRight'){ e.preventDefault(); skipWord(); }
+  if(e.key==='ArrowLeft'){  e.preventDefault(); prevCard(); }
+  if(e.key===' '){
+    const inp=document.getElementById('typingInput');
+    if(inp&&inp.value.length===0){ e.preventDefault(); flipCard(); }
+  }
+}
 
 // Global arrow key support (when typing input is not focused)
 document.addEventListener('keydown', function(e) {
@@ -1299,6 +1222,7 @@ document.addEventListener('keydown', function(e) {
   const isTyping = activeEl && (activeEl.tagName==='INPUT'||activeEl.tagName==='TEXTAREA');
   const isFlashcardPanel = document.getElementById('panel-flashcard')?.classList.contains('active');
   if (!isFlashcardPanel) return;
+  if (isTyping) return; // let handleKey deal with it
   if(e.key==='ArrowRight'){ e.preventDefault(); skipWord(); }
   if(e.key==='ArrowLeft'){  e.preventDefault(); prevCard(); }
   if(e.key===' '||e.key==='ArrowUp'||e.key==='ArrowDown'){ e.preventDefault(); flipCard(); }
@@ -1319,7 +1243,7 @@ function markMastered() {
   isFlipped=false; renderFlashcard(); updateStudyBadge();
 }
 
-function resetMastered() { words.forEach(w=>w.mastered=false); saveData(); buildQueue(); renderFlashcard(); }
+function resetMastered() { words.forEach(w=>w.mastered=false); saveData(); buildQueue(); renderFlashcard(); updateStudyBadge(); }
 
 // ============================================================
 //  LIST
@@ -1377,35 +1301,10 @@ function h(s) {
 // ============================================================
 //  INIT
 // ============================================================
-function renderAuthBar(user) {
-  const bar = document.getElementById('authBar');
-  if (user) {
-    bar.innerHTML = `
-      <div class="auth-user">
-        <img class="auth-avatar" src="${user.photoURL}" alt="">
-        <span class="auth-name">${user.displayName}</span>
-      </div>
-      <button class="btn-signout" onclick="window._signOut()">Đăng xuất</button>
-    `;
-  } else {
-    bar.innerHTML = '';
-  }
-}
-
-function showOverlay()  { document.getElementById('loginOverlay').classList.remove('hidden'); }
-function hideOverlay()  { document.getElementById('loginOverlay').classList.add('hidden'); }
-
-// Lắng nghe auth-changed — đây là điểm khởi động DUY NHẤT
-window.addEventListener('auth-changed', async (e) => {
-  const user = e.detail;
-  renderAuthBar(user);
-  if (user) {
-    hideOverlay();
-    initTTS();
-    await showPacksScreen();
-  } else {
-    showOverlay();
-  }
+// Tự khởi động ngay khi Firebase sẵn sàng
+window.addEventListener('firebase-ready', async () => {
+  initTTS();
+  await showPacksScreen();
 });
 </script>
 </body>
