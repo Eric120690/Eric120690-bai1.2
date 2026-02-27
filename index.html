@@ -563,6 +563,7 @@
         <div>
           <div class="pack-study-title" id="studyPackName"></div>
           <div class="pack-study-badge" id="studyPackBadge"></div>
+          <div id="cloudBadge" style="font-size:0.68rem;color:rgba(255,255,255,0.3);letter-spacing:0.05em;margin-top:2px">☁ Chưa lưu</div>
         </div>
       </div>
       <div class="tabs" style="margin-bottom:0">
@@ -720,7 +721,15 @@ async function saveData() {
     await window._setDoc(packDoc(currentPack.id),
       { words, name: currentPack.name, desc: currentPack.desc || '', updatedAt: Date.now() },
       { merge: true });
-  } catch(e) { console.warn('saveData error:', e.message); }
+    // Cập nhật badge đồng bộ cloud
+    const badge = document.getElementById('cloudBadge');
+    if (badge) { badge.textContent = '☁ Đã lưu'; badge.style.color = 'var(--neon-green)'; }
+  } catch(e) {
+    console.warn('saveData error:', e.message);
+    showToast('error', '✕ Lỗi lưu Firebase: ' + e.message);
+    const badge = document.getElementById('cloudBadge');
+    if (badge) { badge.textContent = '☁ Lỗi lưu!'; badge.style.color = 'var(--neon-pink)'; }
+  }
 }
 
 async function loadData() {
@@ -796,7 +805,18 @@ async function openPack(pack) {
   document.getElementById('screen-study').classList.add('active');
   switchTab('input');
   words = [];
-  await loadData();
+
+  // Kiểm tra kết nối Firebase
+  const badge = document.getElementById('cloudBadge');
+  if (badge) { badge.textContent = '☁ Đang kết nối...'; badge.style.color = 'rgba(255,255,255,0.4)'; }
+
+  const loaded = await loadData();
+  if (loaded) {
+    if (badge) { badge.textContent = '☁ Đã đồng bộ'; badge.style.color = 'var(--neon-cyan)'; }
+  } else {
+    if (badge) { badge.textContent = '☁ Chưa có dữ liệu'; badge.style.color = 'rgba(255,255,255,0.3)'; }
+  }
+
   buildQueue(); renderList(); updateStudyBadge();
 }
 
@@ -842,7 +862,7 @@ async function deletePack(id, e) {
   e.stopPropagation();
   const p = packs.find(p => p.id === id);
   if (!confirm(`Xóa gói "${p?.name}"? Toàn bộ từ vựng sẽ bị mất.`)) return;
-  try { await window._setDoc(packDoc(id), { deleted: true }); } catch(err) {}
+  try { await window._deleteDoc(packDoc(id)); } catch(err) {}
   packs = packs.filter(p => p.id !== id);
   await savePacks();
   renderPacksGrid();
@@ -957,9 +977,9 @@ function confirmImport() {
   words.push(...pendingImport);
   pendingImport = [];
   closeModal();
+  const cb = document.getElementById('cloudBadge');
+  if (cb) { cb.textContent = '☁ Đang lưu...'; cb.style.color = 'var(--neon-yellow)'; }
   saveData();
-  buildQueue();
-  showToast('success', `✓ Đã thêm ${n} từ! Dữ liệu đã lưu vào trình duyệt.`);
 }
 
 function closeModal() { document.getElementById('importModal').classList.remove('show'); pendingImport=[]; }
@@ -981,7 +1001,7 @@ function importText() {
   words.push(...added);
   document.getElementById('wordInput').value='';
   saveData(); buildQueue();
-  showToast('success',`✓ Đã thêm ${added.length} từ. Dữ liệu đã lưu.`);
+  showToast('success',`✓ Đã thêm ${added.length} từ. Đang lưu lên Firebase...`);
 }
 
 function showToast(type, msg) {
