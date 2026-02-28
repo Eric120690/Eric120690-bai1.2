@@ -374,13 +374,7 @@
   .fc-desc  { font-size:0.82rem; color:rgba(255,255,255,0.58); max-width:400px; margin-bottom:7px; line-height:1.6; font-family:'Inter',sans-serif; }
   .fc-example { font-size:0.82rem; color:rgba(255,255,255,0.38); font-style:italic; max-width:420px; line-height:1.6; font-family:'Inter',sans-serif; }
 
-  .typing-zone { background:rgba(0,0,0,0.3); border:1px solid var(--glass-border); border-radius:16px; padding:17px 20px; margin-bottom:16px; transition:border-color 0.2s,background 0.2s; }
-  .typing-zone.correct { border-color:rgba(57,255,20,0.5); background:rgba(57,255,20,0.05); }
-  .typing-zone.wrong   { border-color:rgba(255,0,110,0.5); background:rgba(255,0,110,0.05); }
-  .typing-label { font-size:0.65rem; letter-spacing:0.2em; text-transform:uppercase; color:rgba(255,255,255,0.35); margin-bottom:10px; font-family:'Inter',sans-serif; }
-  .typing-input { width:100%; background:transparent; border:none; color:#fff; font-family:'Syne',sans-serif; font-size:1.3rem; font-weight:700; outline:none; letter-spacing:0.05em; }
-  .typing-input::placeholder { color:rgba(255,255,255,0.1); }
-  .typing-feedback { font-size:0.72rem; margin-top:8px; min-height:16px; }
+
   .feedback-correct { color:var(--neon-green); text-shadow:0 0 8px rgba(57,255,20,0.5); }
   .feedback-wrong   { color:var(--neon-pink); }
 
@@ -1187,53 +1181,18 @@ function renderFlashcard() {
       <span class="arrow-nav-hint">Phím ← → để điều hướng &nbsp;·&nbsp; Space để lật</span>
       <button class="btn-arrow" onclick="skipWord()" title="Tiếp theo (→)">→</button>
     </div>
-    <div class="typing-zone" id="typingZone">
-      <div class="typing-label">⌨ Gõ lại từ tiếng Anh để luyện nhớ &nbsp;(Enter = gợi ý chữ đầu)</div>
-      <input type="text" class="typing-input" id="typingInput"
-        placeholder="${c.word.replace(/./g,'·')}"
-        oninput="checkTyping()" onkeydown="handleKey(event)"
-        autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-      <div class="typing-feedback" id="typingFeedback"></div>
-    </div>
   `;
 
   isFlipped=false;
-  setTimeout(()=>{ const i=document.getElementById('typingInput'); if(i) i.focus(); },80);
   autoSpeakCurrent();
 }
 
 function flipCard() { const c=document.getElementById('theCard'); if(!c)return; isFlipped=!isFlipped; c.classList.toggle('flipped',isFlipped); }
 
-function checkTyping() {
-  const inp=document.getElementById('typingInput');
-  const fb=document.getElementById('typingFeedback');
-  const zone=document.getElementById('typingZone');
-  if(!inp||!studyQueue[currentIndex])return;
-  const typed=inp.value.trim().toLowerCase();
-  const target=studyQueue[currentIndex].word.toLowerCase();
-  if(!typed){fb.textContent='';zone.className='typing-zone';return;}
-  if(typed===target){
-    fb.textContent='✓ Chính xác!';fb.className='typing-feedback feedback-correct';zone.className='typing-zone correct';
-    inp.disabled=true; correctStreak++;
-    setTimeout(()=>{ if(studyQueue[currentIndex]) nextCard(); },1100);
-  } else if(target.startsWith(typed)){
-    fb.textContent=`${typed.length} / ${target.length} ký tự...`;fb.className='typing-feedback';zone.className='typing-zone';
-  } else {
-    fb.textContent='✗ Chưa đúng — thử lại';fb.className='typing-feedback feedback-wrong';zone.className='typing-zone wrong';correctStreak=0;
-  }
-}
-
 function handleKey(e) {
-  if(e.key==='Enter'){
-    const inp=document.getElementById('typingInput');
-    if(inp&&inp.value.length===0&&studyQueue[currentIndex]){inp.value=studyQueue[currentIndex].word[0];checkTyping();}
-  }
   if(e.key==='ArrowRight'){ e.preventDefault(); skipWord(); }
   if(e.key==='ArrowLeft'){  e.preventDefault(); prevCard(); }
-  if(e.key===' '){
-    const inp=document.getElementById('typingInput');
-    if(inp&&inp.value.length===0){ e.preventDefault(); flipCard(); }
-  }
+  if(e.key===' '){ e.preventDefault(); flipCard(); }
 }
 
 // Global arrow key support (when typing input is not focused)
