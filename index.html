@@ -1013,6 +1013,7 @@ function clearAllData() {
 }
 
 let autoPlay = true;   // auto-speak when flashcard loads
+let reversedMode = false; // show Vietnamese first
 
 // ============================================================
 //  TEXT-TO-SPEECH ENGINE
@@ -1135,39 +1136,57 @@ function renderFlashcard() {
         </label>
         <span class="toggle-label">Tự đọc</span>
       </div>
+      <div class="autoplay-toggle">
+        <label class="toggle-switch">
+          <input type="checkbox" id="reversedToggle" ${reversedMode?'checked':''} onchange="reversedMode=this.checked;isFlipped=false;renderFlashcard()">
+          <span class="toggle-track"></span>
+        </label>
+        <span class="toggle-label">🔄 Đảo ngược</span>
+      </div>
       <div class="shuffle-badge">⇆ Ngẫu nhiên</div>
     </div>
     <div class="fc-scene">
       <div class="flashcard" id="theCard" onclick="flipCard()">
         <div class="fc-face fc-front">
-          <div class="fc-hint">Nhấp để xem nghĩa ↕</div>
-          <div class="fc-word">${h(c.word)}</div>
-          ${c.phonetics?`<div class="fc-phonetic">/${h(c.phonetics)}/</div>`:''}
-          ${c.type?`<div class="fc-type">${h(c.type)}</div>`:''}
-          ${c.level?`<div class="fc-level">${h(c.level)}</div>`:''}
-          <div class="fc-speak-row" onclick="event.stopPropagation()">
-            <button class="fc-speak-btn fc-speak-us" id="btnUS" onclick="speakWord('${c.word.replace(/'/g,"\\'")}','en-US','btnUS')">
-              🔊 US
-            </button>
-            <button class="fc-speak-btn fc-speak-uk" id="btnUK" onclick="speakWord('${c.word.replace(/'/g,"\\'")}','en-GB','btnUK')">
-              🔊 UK
-            </button>
-            <a class="fc-cambridge-link" href="https://dictionary.cambridge.org/dictionary/english/${encodeURIComponent(c.word)}" target="_blank" onclick="event.stopPropagation()">
-              📖 Cambridge
-            </a>
-          </div>
-          ${c.example?`<div class="fc-example" style="margin-top:6px">🗣 ${h(c.example)}</div>`:''}
+          <div class="fc-hint">${reversedMode ? 'Tiếng Việt – Nhấp để xem tiếng Anh ↕' : 'Nhấp để xem nghĩa ↕'}</div>
+          ${reversedMode ? `
+            <div class="fc-word">${h(c.meaning)}</div>
+            ${c.description?`<div class="fc-desc">${h(c.description)}</div>`:''}
+          ` : `
+            <div class="fc-word">${h(c.word)}</div>
+            ${c.phonetics?`<div class="fc-phonetic">/${h(c.phonetics)}/</div>`:''}
+            ${c.type?`<div class="fc-type">${h(c.type)}</div>`:''}
+            ${c.level?`<div class="fc-level">${h(c.level)}</div>`:''}
+            <div class="fc-speak-row" onclick="event.stopPropagation()">
+              <button class="fc-speak-btn fc-speak-us" id="btnUS" onclick="speakWord('${c.word.replace(/'/g,"\\'")}','en-US','btnUS')">🔊 US</button>
+              <button class="fc-speak-btn fc-speak-uk" id="btnUK" onclick="speakWord('${c.word.replace(/'/g,"\\'")}','en-GB','btnUK')">🔊 UK</button>
+              <a class="fc-cambridge-link" href="https://dictionary.cambridge.org/dictionary/english/${encodeURIComponent(c.word)}" target="_blank" onclick="event.stopPropagation()">📖 Cambridge</a>
+            </div>
+          `}
+          ${c.example?`<div class="fc-example" style="margin-top:6px" onclick="event.stopPropagation()">🗣 ${h(c.example)}</div>`:''}
         </div>
         <div class="fc-face fc-back">
-          <div class="fc-hint">Nghĩa tiếng Việt</div>
-          <div class="fc-word">${h(c.meaning)}</div>
-          ${c.description?`<div class="fc-desc">${h(c.description)}</div>`:''}
-          <div style="margin-top:8px;font-size:0.8rem;color:rgba(255,255,255,0.38)">${h(c.word)}${c.phonetics?` &nbsp;<span style="color:var(--neon-cyan)">/${h(c.phonetics)}/</span>`:''}</div>
-          <div class="fc-speak-row" onclick="event.stopPropagation()">
-            <button class="fc-speak-btn fc-speak-us" id="btnUS2" onclick="speakWord('${c.word.replace(/'/g,"\\'")}','en-US','btnUS2')">🔊 US</button>
-            <button class="fc-speak-btn fc-speak-uk" id="btnUK2" onclick="speakWord('${c.word.replace(/'/g,"\\'")}','en-GB','btnUK2')">🔊 UK</button>
-          </div>
-          ${c.example?`<div class="fc-example" style="margin-top:6px">🗣 ${h(c.example)}</div>`:''}
+          <div class="fc-hint">${reversedMode ? 'Tiếng Anh' : 'Nghĩa tiếng Việt'}</div>
+          ${reversedMode ? `
+            <div class="fc-word">${h(c.word)}</div>
+            ${c.phonetics?`<div class="fc-phonetic">/${h(c.phonetics)}/</div>`:''}
+            ${c.type?`<div class="fc-type">${h(c.type)}</div>`:''}
+            ${c.level?`<div class="fc-level">${h(c.level)}</div>`:''}
+            <div class="fc-speak-row" onclick="event.stopPropagation()">
+              <button class="fc-speak-btn fc-speak-us" id="btnUS2" onclick="speakWord('${c.word.replace(/'/g,"\\'")}','en-US','btnUS2')">🔊 US</button>
+              <button class="fc-speak-btn fc-speak-uk" id="btnUK2" onclick="speakWord('${c.word.replace(/'/g,"\\'")}','en-GB','btnUK2')">🔊 UK</button>
+              <a class="fc-cambridge-link" href="https://dictionary.cambridge.org/dictionary/english/${encodeURIComponent(c.word)}" target="_blank" onclick="event.stopPropagation()">📖 Cambridge</a>
+            </div>
+          ` : `
+            <div class="fc-word">${h(c.meaning)}</div>
+            ${c.description?`<div class="fc-desc">${h(c.description)}</div>`:''}
+            <div style="margin-top:8px;font-size:0.8rem;color:rgba(255,255,255,0.38)">${h(c.word)}${c.phonetics?` &nbsp;<span style="color:var(--neon-cyan)">/${h(c.phonetics)}/</span>`:''}</div>
+            <div class="fc-speak-row" onclick="event.stopPropagation()">
+              <button class="fc-speak-btn fc-speak-us" id="btnUS2" onclick="speakWord('${c.word.replace(/'/g,"\\'")}','en-US','btnUS2')">🔊 US</button>
+              <button class="fc-speak-btn fc-speak-uk" id="btnUK2" onclick="speakWord('${c.word.replace(/'/g,"\\'")}','en-GB','btnUK2')">🔊 UK</button>
+            </div>
+          `}
+          ${c.example?`<div class="fc-example" style="margin-top:6px" onclick="event.stopPropagation()">🗣 ${h(c.example)}</div>`:''}
         </div>
       </div>
     </div>
